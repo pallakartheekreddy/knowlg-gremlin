@@ -64,10 +64,12 @@ public class KnowlgGraph {
 
     public void createUniqueConstraint() {
         JanusGraphManagement mgmt = graph.openManagement();
-        PropertyKey name = mgmt.getOrCreatePropertyKey("IL_UNIQUE_ID");
-        mgmt.buildIndex("IL_UNIQUE_ID", Vertex.class).addKey(name).unique().buildCompositeIndex();
-        mgmt.commit();
-        System.out.println("created UniqueConstraint successfully.");
+        if(!mgmt.containsPropertyKey("KNOWLG_GRAPH_UNIQUE_CONSTRAINT")){
+            PropertyKey name = mgmt.getOrCreatePropertyKey("IL_UNIQUE_ID");
+            mgmt.buildIndex("KNOWLG_GRAPH_UNIQUE_CONSTRAINT", Vertex.class).addKey(name).unique().buildCompositeIndex();
+            mgmt.commit();
+            System.out.println("created UniqueConstraint successfully.");
+        }
     }
 
     public void closeClient() throws Exception {

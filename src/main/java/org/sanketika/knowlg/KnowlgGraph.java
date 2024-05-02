@@ -9,10 +9,12 @@ import org.janusgraph.core.JanusGraph;
 import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.PropertyKey;
 import org.janusgraph.core.schema.JanusGraphManagement;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.*;
 
 import static org.apache.tinkerpop.gremlin.groovy.jsr223.dsl.credential.__.*;
 import static org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal;
@@ -50,16 +52,92 @@ public class KnowlgGraph {
     }
 
     public void getSubGraph() {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode json = mapper.createObjectNode();
+        ObjectNode frameworks = json.putObject("frameworks");
+        ArrayNode categoriesNode = frameworks.putArray("categories");
+        AtomicReference<String> categoryIdentifier = new AtomicReference<>("");
+
         List<Path> subGraph = g.V().hasLabel("domain").has("IL_UNIQUE_ID", "NCF")
                 .repeat(outE().inV().simplePath()).emit().times(5).path().by(valueMap()).toList();
-        Map<String, Object> frameworkData = new HashMap<>();
         subGraph.forEach(path -> {
-            path.forEach(prop -> {
-                Object data = prop.toString();
-                System.out.println("prop:" + data);
-            });
-            System.out.println("Path:" + path);
+            System.out.println("path ->" + path);
+            Iterator<Object> stepIterator = path.iterator();
+            while (stepIterator.hasNext()) {
+                Object stepObject = stepIterator.next();
+                if (stepObject instanceof Map) {
+                    Map<String, Object> step = (Map<String, Object>) stepObject;
+
+                    ArrayList<?> objectTypeList = (ArrayList<?>) step.getOrDefault("IL_FUNC_OBJECT_TYPE", new ArrayList<>());
+                    String objectType = objectTypeList.size() > 0 ? (String) objectTypeList.get(0) : "Invalid";
+
+                    ArrayList<?> identifierList = (ArrayList<?>) step.getOrDefault("IL_UNIQUE_ID", new ArrayList<>());
+                    String identifier = identifierList.size() > 0 ? (String) identifierList.get(0) : "Invalid";
+
+                    switch (objectType) {
+                        case "Framework":
+                            if (!frameworks.has("identifier")) {
+                                frameworks.put("identifier", identifier);
+                                frameworks.put("objectType", objectType);
+                            }
+                            break;
+                        case "Category":
+                            categoryIdentifier.set(identifier);
+                            boolean categoryExists = false;
+                            for (JsonNode category : categoriesNode) {
+                                String existingIdentifier = category.get("identifier").asText();
+                                if (existingIdentifier.equals(identifier)) {
+                                    categoryExists = true;
+                                    break;
+                                }
+                            }
+                            if (!categoryExists) {
+                                ObjectNode categoryNode = categoriesNode.addObject();
+                                categoryNode.put("identifier", identifier);
+                                categoryNode.put("objectType", objectType);
+                                categoryNode.putArray("terms");
+                            }
+                            break;
+                        case "Term":
+                            String categoryId = categoryIdentifier.get();
+                            if (categoryId != null && !categoryId.isEmpty()) {
+                                ObjectNode categoryNode = findCategoryNode(categoriesNode, categoryId);
+                                if (categoryNode != null) {
+                                    ArrayNode termsNode = categoryNode.withArray("terms");
+                                    boolean termExists = false;
+                                    for (JsonNode term : termsNode) {
+                                        String existingTermIdentifier = term.get("identifier").asText();
+                                        if (existingTermIdentifier.equals(identifier)) {
+                                            termExists = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!termExists) {
+                                        ObjectNode termNode = termsNode.addObject();
+                                        termNode.put("identifier", identifier);
+                                        termNode.put("objectType", objectType);
+                                    }
+                                }
+                            }
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
         });
+        System.out.println(json);
+    }
+
+    private ObjectNode findCategoryNode(ArrayNode categoriesNode, String categoryIdentifier) {
+        for (JsonNode category : categoriesNode) {
+            String existingIdentifier = category.get("identifier").asText();
+            if (existingIdentifier.equals(categoryIdentifier)) {
+                return (ObjectNode) category;
+            }
+        }
+        return null;
     }
 
     public void createUniqueConstraint() {

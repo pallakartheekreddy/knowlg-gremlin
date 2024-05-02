@@ -72,6 +72,39 @@ public class KnowlgGraph {
         }
     }
 
+    public void updateElement(){
+        Vertex updatedVertex = g.V().has("domain", "identifier", "NCF")
+                .property("createdBy", "Mahesh-Mac-M1")
+                .next();
+        System.out.println(updatedVertex.graph());
+
+    }
+
+    public void retireElement(){
+        Vertex retiredVertex = g.V().has("domain", "identifier", "NCF")
+                .property("createdBy", "Mahesh-Mac-M1")
+                .property("retired", true)
+                .next();
+        System.out.println(retiredVertex.graph());
+    }
+
+    public void toCheckRetiredElement(){
+        Vertex vertex = g.V().has("domain", "identifier", "NCF")
+                .property("createdBy", "Mahesh-Mac-M1").next();
+        Boolean isRetired = vertex.value("retired");
+        if (isRetired) {
+            System.out.println("Vertex is retired.");
+        } else {
+            System.out.println("Vertex is not retired.");
+        }
+    }
+
+    public void deleteElement(){
+        GraphTraversal  dropVertex = g.V().has("domain", "identifier", "NCF")
+                .property("createdBy", "Mahesh-Mac-M1").drop().iterate();
+        System.out.println(dropVertex);
+    }
+
     public void closeClient() throws Exception {
         g.close();
     }

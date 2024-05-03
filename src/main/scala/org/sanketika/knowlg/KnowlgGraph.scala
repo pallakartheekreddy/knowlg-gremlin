@@ -6,7 +6,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.t
 import org.apache.tinkerpop.gremlin.process.traversal.Path
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.{outE, valueMap}
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.{in, outE, valueMap}
 import org.apache.tinkerpop.gremlin.structure.Vertex
 import org.janusgraph.core.JanusGraph
 import org.janusgraph.core.JanusGraphFactory
@@ -22,15 +22,15 @@ class KnowlgGraph {
 
     @throws[Exception]
     def getGraphClient(): Unit = {
-        g = traversal.withRemote("/Users/sanketika-mac1/Documents/GitHub/knowlg-gremlin/src/main/resources/remote-graph.properties")
-        graph = JanusGraphFactory.open("/Users/sanketika-mac1/Documents/GitHub/knowlg-gremlin/src/main/resources/janusgraph-inmemory.properties")
-        System.out.println("GraphTraversalSource: " + g)
-        System.out.println("JanusGraphFactory: " + graph)
+        g = traversal.withRemote("conf/remote-graph.properties")
+        graph = JanusGraphFactory.open("conf/janusgraph-inmemory.properties")
+        println("GraphTraversalSource: " + g)
+        println("JanusGraphFactory: " + graph)
     }
 
     def createElements(): Unit = {
         val properties: util.Map[AnyRef, AnyRef] = new util.HashMap[AnyRef, AnyRef]
-        properties.put("identifier", "NCF")
+        properties.put("identifier", "NCF-3")
         properties.put("objectType", "Framework")
         properties.put("createdBy", "Mahesh-Mac-M1")
         g.addV("domain").property(properties).next()
@@ -38,6 +38,8 @@ class KnowlgGraph {
 
     def getElements(): Unit = {
         val traversal: GraphTraversal[_, _] = g.V().hasLabel("domain").has("IL_UNIQUE_ID", "NCF").repeat(outE().inV().simplePath).emit().times(5).path()
+        val traversal1 = g.V().valueMap().toList
+        println(traversal1)
         while (traversal.hasNext) {
             val path: Any = traversal.next()
             System.out.println("Path:" + path)
@@ -74,7 +76,7 @@ class KnowlgGraph {
     }
 
     def retireElement(): Unit = {
-        val retiredVertex: Vertex = g.V().has("domain", "identifier", "NCF").property("createdBy", "Mahesh-Mac-M1").property("retired", true).next()
+        val retiredVertex: Vertex = g.V().has("domain", "identifier", "NCF").property("createdBy", "Mahesh-Mac-M1-011").property("retired", true).next()
         System.out.println(retiredVertex.graph)
     }
 

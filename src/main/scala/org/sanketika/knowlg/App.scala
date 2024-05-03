@@ -6,7 +6,7 @@ object App {
     def main(args: Array[String]): Unit = {
         val knowlgGraph = new KnowlgGraph()
         knowlgGraph.getGraphClient()
-        knowlgGraph.createElements()
+        knowlgGraph.getElements()
         //    knowlgGraph.getSubGraph()
         knowlgGraph.closeClient()
         println("created successfully")

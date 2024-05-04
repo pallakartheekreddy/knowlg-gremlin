@@ -1,17 +1,19 @@
-package org.sanketika.knowlg;
+package org.sanketika.knowlg
 
 import java.util
-import org.apache.tinkerpop.gremlin.driver.Client
-import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal
-import org.apache.tinkerpop.gremlin.process.traversal.Path
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import com.fasterxml.jackson.core.JsonProcessingException
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.{in, outE, valueMap}
-import org.apache.tinkerpop.gremlin.structure.Vertex
-import org.janusgraph.core.JanusGraph
-import org.janusgraph.core.JanusGraphFactory
-import org.janusgraph.core.PropertyKey
+import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal
+import org.apache.tinkerpop.gremlin.driver.Client
+import org.apache.tinkerpop.gremlin.groovy.jsr223.dsl.credential.__
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.{ GraphTraversal, GraphTraversalSource}
+import org.apache.tinkerpop.gremlin.structure.{Graph, Vertex}
+import org.janusgraph.core.{JanusGraph, JanusGraphFactory, PropertyKey }
 import org.janusgraph.core.schema.JanusGraphManagement
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.apache.tinkerpop.gremlin.groovy.jsr223.dsl.credential.__._
+import scala.collection.JavaConverters.asScalaBufferConverter
+
 
 class KnowlgGraph {
 
@@ -46,19 +48,41 @@ class KnowlgGraph {
         }
     }
 
+    @throws[JsonProcessingException]
     def getSubGraph(): Unit = {
-        val subGraph: util.List[Path] = g.V().hasLabel("domain").has("IL_UNIQUE_ID", "NCF").repeat(outE().inV().simplePath).emit().times(5).path().by(valueMap()).toList
-        val frameworkData: util.Map[String, AnyRef] = new util.HashMap[String, AnyRef]
-        subGraph.forEach((path: Path) => {
-            path.forEach((prop: AnyRef) => {
-                val data: AnyRef = prop.toString
-                System.out.println("prop:" + data)
+        val mapper = new ObjectMapper()
+        val subGraph : Graph = g.V().hasLabel("domain").has("IL_UNIQUE_ID", "NCF").repeat(bothE().subgraph("sg").otherV).until(__.loops.is(5)).cap("sg").next()
+        val sg = subGraph.traversal()
+        val results = sg.V().hasLabel("domain").as("vertex").project("vertexDetails", "incomingEdges", "parentVertex").by(valueMap()).by(inE().as("edge").outV.dedup().select("edge").valueMap(true)).by(in().valueMap()).dedup().toList.asInstanceOf[java.util.List[java.util.Map[String, AnyRef]]].asScala
 
-            })
-            System.out.println("Path:" + path)
-
-        })
+        val nestedJson = new util.HashMap[String, AnyRef]()
+            for (result: util.Map[String, AnyRef] <- results) {
+                System.out.println("result: " + result)
+                val vertexDetails = result.getOrDefault("vertexDetails", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
+                val identifier: String = vertexDetails.getOrDefault("identifier", new util.ArrayList[String]()).asInstanceOf[util.List[String]].get(0)
+                val parentVertices= result.getOrDefault("parentVertex", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
+                if (parentVertices.isEmpty) {
+                    nestedJson.put(identifier, vertexDetails)
+                }
+                else {
+                    val parentIdentifier: String = parentVertices.get("identifier").asInstanceOf[util.List[String]].get(0)
+                    var parentInNestedJson= nestedJson.get(parentIdentifier).asInstanceOf[util.HashMap[String, AnyRef]]
+                    if (parentInNestedJson == null) {
+                        parentInNestedJson = new util.HashMap[String, AnyRef]()
+                        nestedJson.put(parentIdentifier, parentInNestedJson)
+                    }
+                    var children = parentInNestedJson.get("children").asInstanceOf[util.HashMap[String, AnyRef]]
+                    if (children == null) {
+                        children = new util.HashMap[String, AnyRef]()
+                        parentInNestedJson.put("children", children)
+                    }
+                    children.putAll(vertexDetails)
+                }
+            }
+        val json: String = mapper.writeValueAsString(nestedJson)
+        System.out.println("Nested JSON: " + json)
     }
+
 
     def createUniqueConstraint(): Unit = {
         val mgmt: JanusGraphManagement = graph.openManagement()

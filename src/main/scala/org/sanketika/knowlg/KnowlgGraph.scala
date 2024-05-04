@@ -55,32 +55,36 @@ class KnowlgGraph {
         val sg = subGraph.traversal()
         val results = sg.V().hasLabel("domain").as("vertex").project("vertexDetails", "incomingEdges", "parentVertex").by(valueMap()).by(inE().as("edge").outV.dedup().select("edge").valueMap(true)).by(in().valueMap()).dedup().toList.asInstanceOf[java.util.List[java.util.Map[String, AnyRef]]].asScala
 
-        val nestedJson = new util.HashMap[String, AnyRef]()
-            for (result: util.Map[String, AnyRef] <- results) {
-                System.out.println("result: " + result)
-                val vertexDetails = result.getOrDefault("vertexDetails", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
-                val identifier: String = vertexDetails.getOrDefault("identifier", new util.ArrayList[String]()).asInstanceOf[util.List[String]].get(0)
-                val parentVertices= result.getOrDefault("parentVertex", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
-                if (parentVertices.isEmpty) {
-                    nestedJson.put(identifier, vertexDetails)
-                }
-                else {
-                    val parentIdentifier: String = parentVertices.get("identifier").asInstanceOf[util.List[String]].get(0)
-                    var parentInNestedJson= nestedJson.get(parentIdentifier).asInstanceOf[util.HashMap[String, AnyRef]]
-                    if (parentInNestedJson == null) {
-                        parentInNestedJson = new util.HashMap[String, AnyRef]()
-                        nestedJson.put(parentIdentifier, parentInNestedJson)
-                    }
-                    var children = parentInNestedJson.get("children").asInstanceOf[util.HashMap[String, AnyRef]]
-                    if (children == null) {
-                        children = new util.HashMap[String, AnyRef]()
-                        parentInNestedJson.put("children", children)
-                    }
-                    children.putAll(vertexDetails)
-                }
+        val nestedMap = new util.HashMap[String, AnyRef]()
+        for (result: util.Map[String, AnyRef] <- results) {
+            val vertexDetails = result.getOrDefault("vertexDetails", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
+            val identifier: String = vertexDetails.getOrDefault("identifier", new util.ArrayList[String]).asInstanceOf[util.List[String]].get(0)
+            val parentVertices = result.getOrDefault("parentVertex", new java.util.HashMap()).asInstanceOf[java.util.HashMap[String, AnyRef]]
+            if (parentVertices.isEmpty) {
+                nestedMap.put(identifier, vertexDetails)
             }
-        val json: String = mapper.writeValueAsString(nestedJson)
-        System.out.println("Nested JSON: " + json)
+            else {
+                val parentIdentifier: String = parentVertices.get("identifier").asInstanceOf[util.List[String]].get(0)
+                var parentInNestedJson = nestedMap.get(parentIdentifier).asInstanceOf[util.HashMap[String, AnyRef]]
+                if (parentInNestedJson == null) {
+                    parentInNestedJson = new util.HashMap[String, AnyRef]
+                    nestedMap.put(parentIdentifier, parentInNestedJson)
+                }
+                var children = parentInNestedJson.get("children").asInstanceOf[util.HashMap[String, AnyRef]]
+                if (children == null) {
+                    children = new util.HashMap[String, AnyRef]
+                    parentInNestedJson.put("children", children)
+                }
+                val child = new util.HashMap[String, AnyRef]
+                child.putAll(vertexDetails)
+                children.put(identifier, child)
+            }
+        }
+
+        System.out.println("nestedMap: " + nestedMap)
+        val json: String = mapper.writeValueAsString(nestedMap)
+        System.out.println("json : " + json)
+
     }
 
 

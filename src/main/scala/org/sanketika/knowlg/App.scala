@@ -8,6 +8,7 @@ object App {
         knowlgGraph.getGraphClient()
 //        knowlgGraph.getElements()
         knowlgGraph.getSubGraph()
+//        knowlgGraph.createOneMillionVerticesConcurrently()
         knowlgGraph.closeClient()
         println("created successfully")
     }
